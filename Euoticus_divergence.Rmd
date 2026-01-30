@@ -1,0 +1,397 @@
+Wallace Session 2024-08-08
+================
+
+Please find below the R code history from your *Wallace* v2.1.3 session.
+
+You can reproduce your session results by running this R Markdown file
+in RStudio.
+
+Each code block is called a “chunk”, and you can run them either
+one-by-one or all at once by choosing an option in the “Run” menu at the
+top-right corner of the “Source” pane in RStudio.
+
+For more detailed information see <http://rmarkdown.rstudio.com>).
+
+### Package installation
+
+Wallace uses the following R packages that must be installed and loaded
+before starting.
+
+```{r}
+library(spocc)
+library(spThin)
+library(dismo)
+library(sf)
+library(ENMeval)
+library(wallace)
+library(here)
+library(ecospat)
+library(ade4)
+```
+
+
+Your analyses are below.
+
+------------------------------------------------------------------------
+
+## Analysis for *Euoticus elegantulus* (Ee)
+
+User CSV path with occurrence data. If the CSV file is not in the
+current workspace, change to the correct file path
+(e.g. “/Users/darwin/Documents/occs/”).
+
+```{r}
+# NOTE: provide the folder path of the .csv file
+occs_path <- here("Occurrences")
+occs_path <- file.path(occs_path, "Euoticus_elegantulus_occs_NEW.csv")
+# get a list of species occurrence data
+userOccs_Ee <- occs_userOccs(
+  txtPath = occs_path, 
+  txtName = "Euoticus_elegantulus_occs_NEW.csv", 
+  txtSep = ",", 
+  txtDec = ".")
+occs_Ee <- userOccs_Ee$Euoticus_elegantulus$cleaned
+```
+
+### Obtain environmental data
+
+Using WorldClim v2.1 (<http://www.worldclim.org/>) bioclimatic dataset
+at resolution of 2.5 arcmin.
+
+```{r}
+# Download environmental data 
+envs_Ee <- envs_worldclim(
+  bcRes = 2.5, 
+  bcSel = c('bio01', 'bio02', 'bio03', 'bio04', 'bio05',
+            'bio06', 'bio07', 'bio10', 
+            'bio11', 'bio12', 'bio13', 'bio14', 'bio15', 'bio16', 
+            'bio17', 'bio18'), 
+  mapCntr = c(12.277, 2.129), # Mandatory for 30 arcsec resolution   
+  doBrick = FALSE)
+occs_xy_Ee <- occs_Ee[c('longitude', 'latitude')]
+occs_vals_Ee <- as.data.frame(raster::extract(envs_Ee, occs_xy_Ee, cellnumbers = TRUE))
+# Remove duplicated same cell values
+occs_Ee <- occs_Ee[!duplicated(occs_vals_Ee[, 1]), ]
+occs_vals_Ee <- occs_vals_Ee[!duplicated(occs_vals_Ee[, 1]), -1]
+# remove occurrence records with NA environmental values
+occs_Ee <- occs_Ee[!(rowSums(is.na(occs_vals_Ee)) >= 1), ]
+# also remove variable value rows with NA environmental values
+occs_vals_Ee <- na.omit(occs_vals_Ee)
+# add columns for env variable values for each occurrence record
+occs_Ee <- cbind(occs_Ee, occs_vals_Ee)
+```
+
+### Process Occurrence Data
+
+Thinning the occurrences to 10 km
+
+```{r}
+# Thin occurrences 
+occs_Ee <- poccs_thinOccs(
+  occs = occs_Ee, 
+  thinDist = 5)
+```
+
+### Process environmental data
+
+Sampling of 5000 background points and corresponding environmental data
+using a “minimum convex polygon” method with a 1 degree buffer.
+
+```{r}
+# Generate background extent 
+bgExt_Ee <- penvs_bgExtent(
+  occs = occs_Ee,
+  bgSel = "minimum convex polygon",
+  bgBuf = 2)
+# Mask environmental data to provided extent
+bgMask_Ee <- penvs_bgMask(
+  occs = occs_Ee,
+  envs = envs_Ee,
+  bgExt = bgExt_Ee)
+# Sample background points from the provided area
+bgSample_Ee <- penvs_bgSample(
+  occs = occs_Ee,
+  bgMask =  bgMask_Ee,
+  bgPtsNum = 10000)
+# Extract values of environmental layers for each background point
+bgEnvsVals_Ee <- as.data.frame(raster::extract(bgMask_Ee,  bgSample_Ee))
+##Add extracted values to background points table
+bgEnvsVals_Ee <- cbind(scientific_name = paste0("bg_", "Euoticus elegantulus"), bgSample_Ee,
+                            occID = NA, year = NA, institution_code = NA, country = NA,
+                            state_province = NA, locality = NA, elevation = NA,
+                            record_type = NA, bgEnvsVals_Ee)
+```
+
+------------------------------------------------------------------------
+
+## Analysis for *Euoticus pallidus* (Ep)
+
+User CSV path with occurrence data. If the CSV file is not in the
+current workspace, change to the correct file path
+(e.g. “/Users/darwin/Documents/occs/”).
+
+```{r}
+# NOTE: provide the folder path of the .csv file
+occs_path <- here("Occurrences")
+occs_path <- file.path(occs_path, "Euoticus_pallidus_occs_NEW.csv")
+# get a list of species occurrence data
+userOccs_Ep <- occs_userOccs(
+  txtPath = occs_path, 
+  txtName = "E_pallidus_occs_NEW.csv", 
+  txtSep = ",", 
+  txtDec = ".")
+occs_Ep <- userOccs_Ep$Euoticus_pallidus$cleaned
+```
+
+### Obtain environmental data
+
+Using WorldClim v2.1 (<http://www.worldclim.org/>) bioclimatic dataset
+at resolution of 2.5 arcmin.
+
+```{r}
+# Download environmental data 
+envs_Ep <- envs_worldclim(
+  bcRes = 2.5, 
+   bcSel = c('bio01', 'bio02', 'bio03', 'bio04', 'bio05',
+            'bio06', 'bio07', 'bio10', 
+            'bio11', 'bio12', 'bio13', 'bio14', 'bio15', 'bio16', 'bio17', 'bio18'), 
+  mapCntr = c(9.184, 5.248), # Mandatory for 30 arcsec resolution   
+  doBrick = FALSE)
+occs_xy_Ep <- occs_Ep[c('longitude', 'latitude')]
+occs_vals_Ep <- as.data.frame(raster::extract(envs_Ep, occs_xy_Ep, cellnumbers = TRUE))
+# Remove duplicated same cell values
+occs_Ep <- occs_Ep[!duplicated(occs_vals_Ep[, 1]), ]
+occs_vals_Ep <- occs_vals_Ep[!duplicated(occs_vals_Ep[, 1]), -1]
+# remove occurrence records with NA environmental values
+occs_Ep <- occs_Ep[!(rowSums(is.na(occs_vals_Ep)) >= 1), ]
+# also remove variable value rows with NA environmental values
+occs_vals_Ep <- na.omit(occs_vals_Ep)
+# add columns for env variable values for each occurrence record
+occs_Ep <- cbind(occs_Ep, occs_vals_Ep)
+```
+
+### Process Occurrence Data
+
+Thinning the occurrences to 10 km
+
+```{r}
+# Thin occurrences 
+occs_Ep <- poccs_thinOccs(
+  occs = occs_Ep, 
+  thinDist = 5)
+```
+
+### Process environmental data
+
+Sampling of 5000 background points and corresponding environmental data
+using a “minimum convex polygon” method with a 1 degree buffer.
+
+```{r}
+# Generate background extent 
+bgExt_Ep <- penvs_bgExtent(
+  occs = occs_Ep,
+  bgSel = "minimum convex polygon",
+  bgBuf = 2)
+# Mask environmental data to provided extent
+bgMask_Ep <- penvs_bgMask(
+  occs = occs_Ep,
+  envs = envs_Ep,
+  bgExt = bgExt_Ep)
+# Sample background points from the provided area
+bgSample_Ep <- penvs_bgSample(
+  occs = occs_Ep,
+  bgMask =  bgMask_Ep,
+  bgPtsNum = 10000)
+# Extract values of environmental layers for each background point
+bgEnvsVals_Ep <- as.data.frame(raster::extract(bgMask_Ep,  bgSample_Ep))
+##Add extracted values to background points table
+bgEnvsVals_Ep <- cbind(scientific_name = paste0("bg_", "Euoticus pallidus"), bgSample_Ep,
+                            occID = NA, year = NA, institution_code = NA, country = NA,
+                            state_province = NA, locality = NA, elevation = NA,
+                            record_type = NA, bgEnvsVals_Ep)
+```
+
+------------------------------------------------------------------------
+
+## ESPACE analysis for *Euoticus elegantulus* and *Euoticus pallidus* (Ee_Ep)
+
+### Environmental space
+
+Performing and plotting principal component analysis to reduce
+dimensionality of environmental space for *Euoticus elegantulus* &
+*Euoticus pallidus*. PCA done for occsBg.
+
+```{r}
+# Determine the variables to use
+pcaSel_Ee_Ep <- c('bio01', 'bio02', 'bio03', 'bio04', 'bio05', 'bio06',
+                  'bio07', 'bio10', 'bio11', 'bio12', 
+                  'bio13', 'bio14', 'bio15', 'bio16', 'bio17', 'bio18')
+# Run the pca
+espace_pca_Ee_Ep <- espace_pca(
+  sp.name1 = "Euoticus elegantulus",
+  sp.name2 = "Euoticus pallidus", 
+  occs.z1 = occs_Ee[,pcaSel_Ee_Ep],
+  occs.z2 = occs_Ep[,pcaSel_Ee_Ep],
+  bgPts.z1 = bgEnvsVals_Ee[,pcaSel_Ee_Ep],
+  bgPts.z2 = bgEnvsVals_Ep[,pcaSel_Ee_Ep])
+
+## Generate plots
+# PCA Scatter Plot
+if ("occsBg" == "occs") {
+  x <- espace_pca_Ee_Ep$scores[espace_pca_Ee_Ep$scores$bg == 'sp', ]
+  x.f <- factor(x$sp)
+} else if ("occsBg" == "occsBg") {
+  x <- espace_pca_Ee_Ep$scores[espace_pca_Ee_Ep$scores$sp == 'bg', ]
+  x.f <- factor(x$bg)
+}
+ade4::s.class(x, x.f, xax = 1, yax = 2,
+              col = c("magenta", "orange"), cstar = 0, cpoint = 0.1)
+title(xlab = paste0("PC", 1), ylab = paste0("PC", 2))
+# PCA Correlation circle
+ade4::s.corcircle(espace_pca_Ee_Ep$co, xax = 1, yax = 2,
+                  lab = pcaSel_Ee_Ep, sub = "PC1 (37.8%)", csub = 1, 
+                  possub = "bottomright", full = TRUE, box = FALSE)
+      title(xlab = NA,
+            ylab = "PC2 (30.3%)")
+?s.corcircle
+?s.arrow
+# PCA screeplot
+screeplot(espace_pca_Ee_Ep, main = NULL)
+# Print PCA summary of results
+summary(espace_pca_Ee_Ep)
+```
+
+### Environmental space
+
+Calculating the part of environmental space more densly populated by
+species & the availability of environmental conditions in the background
+for *Euoticus elegantulus* & *Euoticus pallidus*
+
+```{r}
+# Create density grid
+espace_occDens_Ee_Ep <- espace_occDens(
+  sp.name1 = "Euoticus elegantulus",
+  sp.name2 = "Euoticus pallidus", 
+  pca = espace_pca_Ee_Ep) 
+# Plots
+graphics::par(mfrow = c(1,2))
+ecospat.plot.nicheDEV(espace_occDens_Ee_Ep[["Euoticus elegantulus"]], 
+                            title = substitute(paste(italic("Euoticus elegantulus"))))
+ecospat.plot.nicheDEV(espace_occDens_Ee_Ep[["Euoticus pallidus"]], 
+                            title = substitute(paste(italic("Euoticus pallidus"))))
+```
+
+### Environmental space
+
+Evaluating niche overlap between *Euoticus elegantulus* & *Euoticus
+pallidus* for which the occurrence density grid was computed. Running
+equivalence test (FALSE) and similarity test TRUE
+
+```{r}
+## Run tests 
+ecospat::ecospat.plot.niche.dyn(
+  espace_occDens_Ee_Ep[["Euoticus elegantulus"]],
+  espace_occDens_Ee_Ep[["Euoticus pallidus"]],
+  0.5,
+  title = "Euoticus elegantulus_Euoticus pallidus",
+  col.unf = "pink",
+  col.exp = "violet",
+  col.stab = "purple",
+  colZ1 = "magenta",
+  colZ2 = "orange",
+  transparency = 25
+)
+
+```
+
+```{r}
+# Run equivalency test
+eq.test <- ecospat::ecospat.niche.equivalency.test(espace_occDens_Ee_Ep[["Euoticus elegantulus"]],
+                                                   espace_occDens_Ee_Ep[["Euoticus pallidus"]],
+                                 rep=100, intersection = 0.1, 
+                                 overlap.alternative = "lower", 
+                                 expansion.alternative = "higher", 
+                                 stability.alternative = "lower", 
+                                 unfilling.alternative = "higher")
+ecospat::ecospat.plot.overlap.test(eq.test, "D", "Equivalency")
+ecospat::ecospat.plot.overlap.test(eq.test, "I", "Equivalency")
+eq.test
+```
+
+
+```{r}
+# Run similarity test for divergence for z1 -> z2
+sim.test <- ecospat::ecospat.niche.similarity.test(espace_occDens_Ee_Ep[["Euoticus elegantulus"]],
+                                                   espace_occDens_Ee_Ep[["Euoticus pallidus"]],
+                                          rep = 100,
+                                          overlap.alternative = "lower", 
+                                          expansion.alternative = "higher", 
+                                          stability.alternative = "lower", 
+                                          unfilling.alternative = "higher", 
+                                          intersection = 0.1, rand.type=2)
+
+ecospat::ecospat.plot.overlap.test(sim.test, "D", "Similarity")
+ecospat::ecospat.plot.overlap.test(sim.test, "I", "Similarity")
+sim.test
+```
+
+```{r}
+# Run similarity test for divergence for z2 -> z1
+sim.test <- ecospat::ecospat.niche.similarity.test(espace_occDens_Ee_Ep[["Euoticus pallidus"]],
+                                                   espace_occDens_Ee_Ep[["Euoticus elegantulus"]],
+                                          rep = 100,
+                                          overlap.alternative = "lower", 
+                                          expansion.alternative = "higher", 
+                                          stability.alternative = "lower", 
+                                          unfilling.alternative = "higher", 
+                                          intersection = 0.1, rand.type=2)
+
+ecospat::ecospat.plot.overlap.test(sim.test, "D", "Similarity")
+ecospat::ecospat.plot.overlap.test(sim.test, "I", "Similarity")
+sim.test
+```
+
+```{r}
+# Run similarity test for conservatism for z1 -> z2
+sim.test <- ecospat::ecospat.niche.similarity.test(espace_occDens_Ee_Ep[["Euoticus elegantulus"]],
+                                                   espace_occDens_Ee_Ep[["Euoticus pallidus"]],
+                                          rep = 100,
+                                          overlap.alternative = "higher", 
+                                          expansion.alternative = "lower", 
+                                          stability.alternative = "higher", 
+                                          unfilling.alternative = "lower", 
+                                          intersection = 0.1, rand.type=2)
+
+ecospat::ecospat.plot.overlap.test(sim.test, "D", "Similarity")
+ecospat::ecospat.plot.overlap.test(sim.test, "I", "Similarity")
+sim.test
+```
+
+```{r}
+# Run similarity test for conservatism for z2 -> z1
+sim.test <- ecospat::ecospat.niche.similarity.test(espace_occDens_Ee_Ep[["Euoticus pallidus"]],
+                                                   espace_occDens_Ee_Ep[["Euoticus elegantulus"]],
+                                          rep = 100,
+                                          overlap.alternative = "higher", 
+                                          expansion.alternative = "lower", 
+                                          stability.alternative = "higher", 
+                                          unfilling.alternative = "lower", 
+                                          intersection = 0.1, rand.type=2)
+
+ecospat::ecospat.plot.overlap.test(sim.test, "D", "Similarity")
+ecospat::ecospat.plot.overlap.test(sim.test, "I", "Similarity")
+sim.test
+```
+
+```{r}
+# Run overlap test
+D.overlap <- ecospat.niche.overlap (espace_occDens_Ee_Ep[["Euoticus elegantulus"]],
+                                    espace_occDens_Ee_Ep[["Euoticus pallidus"]],
+                                    cor = TRUE)$D
+D.overlap
+
+I.overlap <- ecospat.niche.overlap (espace_occDens_Ee_Ep[["Euoticus elegantulus"]],
+                                    espace_occDens_Ee_Ep[["Euoticus pallidus"]],
+                                    cor = TRUE)$I
+I.overlap
+```
